@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { StepsList } from '../components/builder/StepsList.tsx';
 import { FileExplorer } from '../components/builder/FileExplorer';
 import { TabView } from '../components/builder/TabView.tsx';
@@ -11,14 +11,7 @@ import { parseXml } from '../steps';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { Loader } from '../components/Loader.tsx';
 
-import {
-    PanelRight,
-    Send,
-    RefreshCw,
-    AlertTriangle,
-    Download,
-    Loader2,
-} from 'lucide-react';
+import { PanelRight, Send, RefreshCw, AlertTriangle, Download, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { WebContainer } from '@webcontainer/api';
 import { downloadProjectAsZip } from '../utils/fileDownloader';
