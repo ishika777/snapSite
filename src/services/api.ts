@@ -21,9 +21,6 @@ export async function getProjectTemplate(prompt: string) {
     }
 }
 
-/**
- * Send chat message to the AI
- */
 export async function sendChatMessage(messages: any[]) {
     try {
         const response = await fetch(`${API_URL}/chat`, {
