@@ -7,13 +7,11 @@ import { CodeEditor } from '../components/builder/CodeEditor.tsx';
 import { PreviewFrame } from '../components/builder/PreviewFrame';
 import { Step, FileItem, StepType } from '@/types/index.ts';
 import axios from 'axios';
-import { API_URL } from '../config.ts';
 import { parseXml } from '../steps';
 import { useWebContainer } from '../hooks/useWebContainer';
 import { Loader } from '../components/Loader.tsx';
 
 import {
-    Home,
     PanelRight,
     Send,
     RefreshCw,
@@ -31,7 +29,6 @@ type StepStatus = 'pending' | 'in-progress' | 'completed';
 
 export function Builder() {
 
-    const navigate = useNavigate();
     const { prompt, setLoading: setContextLoading, currentStep, setCurrentStep, } = useAppContext();
 
     const [userPrompt, setPrompt] = useState('');
@@ -49,6 +46,8 @@ export function Builder() {
 
     const [steps, setSteps] = useState<Step[]>([]);
     const [files, setFiles] = useState<FileItem[]>([]);
+
+    const API_URL = import.meta.env.VITE_BACKEND_URL;
 
     // Process steps to generate files
     useEffect(() => {
