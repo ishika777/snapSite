@@ -2,17 +2,13 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { FileItem } from '../types';
 
-/**
- * Creates a ZIP file from an array of FileItem objects and initiates download
- */
+
 export async function downloadProjectAsZip(files: FileItem[], projectName: string = 'snapSite-project'): Promise<void> {
   try {
     const zip = new JSZip();
     
-    // Recursively add files to the zip
     const addFilesToZip = (fileItems: FileItem[], currentPath: string = '') => {
       fileItems.forEach(item => {
-        // Skip files with invalid paths
         if (!item.path) return;
         
         // Remove leading slash if present

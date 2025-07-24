@@ -38,6 +38,7 @@ function getFileIcon(fileName: string) {
 }
 
 function FileNode({ item, depth, onFileClick }: FileNodeProps) {
+
     const [isExpanded, setIsExpanded] = useState(item.type === 'folder');
 
     const handleClick = () => {
@@ -51,12 +52,11 @@ function FileNode({ item, depth, onFileClick }: FileNodeProps) {
     return (
         <div className="select-none">
             <div
-                className={cn(
-                    "flex items-center gap-2 py-1.5 px-2 rounded cursor-pointer transition-colors text-sm",
-                    item.type === 'file' ? "hover:bg-gray-800/70" : "hover:bg-gray-800/40",
-                )}
-                style={{ paddingLeft: `${depth * 0.75 + 0.5}rem` }}
                 onClick={handleClick}
+                style={{ paddingLeft: `${depth * 0.75 + 0.7}rem` }}
+                className={cn(
+                    "flex items-center gap-2 py-1.5 px-2 rounded cursor-pointer transition-colors text-sm", item.type === 'file' ? "hover:bg-gray-800/70" : "hover:bg-gray-800/40",
+                )}
             >
                 {item.type === 'folder' && (
                     <span className="text-gray-500">
@@ -80,10 +80,8 @@ function FileNode({ item, depth, onFileClick }: FileNodeProps) {
                 <div className="animate-fadeIn">
                     {item.children
                         .sort((a, b) => {
-                            // Folders first, then files
                             if (a.type === 'folder' && b.type === 'file') return -1;
                             if (a.type === 'file' && b.type === 'folder') return 1;
-                            // Alphabetical order
                             return a.name.localeCompare(b.name);
                         })
                         .map((child, index) => (
@@ -112,6 +110,11 @@ export function FileExplorer({ files, onFileSelect }: FileExplorerProps) {
     return (
         <div className="h-full overflow-auto py-2">
             <div className="space-y-0.5">
+                {sortedFiles.length === 0 && (
+                    <div className="p-4 text-center text-gray-500 text-sm">
+                        No files available
+                    </div>
+                )}
                 {sortedFiles.map((file, index) => (
                     <FileNode
                         key={`${file.path}-${index}`}
@@ -120,11 +123,6 @@ export function FileExplorer({ files, onFileSelect }: FileExplorerProps) {
                         onFileClick={onFileSelect}
                     />
                 ))}
-                {sortedFiles.length === 0 && (
-                    <div className="p-4 text-center text-gray-500 text-sm">
-                        No files available
-                    </div>
-                )}
             </div>
         </div>
     );

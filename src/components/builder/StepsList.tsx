@@ -32,12 +32,13 @@ export function StepsList({ steps, currentStep, onStepClick }: StepsListProps) {
         );
     }
 
+
     return (
         <div className='space-y-2'>
             {
-                steps.map((step) => (
+                steps.map((step, idx) => (
                     <div
-                        key={step.id}
+                        key={idx}
                         className={cn(
                             "p-1 rounded-lg cursor-pointer transition-all border border-transparent hover:bg-gray-800/50",
                         )}

@@ -80,6 +80,7 @@ export function CodeEditor({ file, onUpdateFile }: CodeEditorProps) {
                 <Editor
                     height="100%"
                     defaultLanguage={getLanguage(file.name)}
+                    language={getLanguage(file.name)}
                     theme="vs-dark"
                     value={editorContent}
                     onChange={handleEditorChange}
@@ -95,11 +96,10 @@ export function CodeEditor({ file, onUpdateFile }: CodeEditorProps) {
                         smoothScrolling: true,
                         cursorBlinking: 'smooth',
                         cursorSmoothCaretAnimation: 'on',
-                        quickSuggestions: false,
-                        parameterHints: { enabled: false }
+                        quickSuggestions: true,
+                        parameterHints: { enabled: true }
                     }}
                     onMount={(editor, monaco) => {
-                        // Disable validation for TypeScript/JavaScript
                         if (monaco.languages.typescript) {
                             monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
                                 noSemanticValidation: true,

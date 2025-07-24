@@ -18,7 +18,6 @@ export function useWebContainer(): UseWebContainerResult {
                 setLoading(true);
                 setError(null);
 
-                // Check if the browser supports SharedArrayBuffer and is cross-origin isolated
                 if (typeof window !== 'undefined' && !window.crossOriginIsolated) {
                     console.warn('Cross-origin isolation is not enabled. WebContainer might not work correctly.');
                 }
@@ -35,10 +34,7 @@ export function useWebContainer(): UseWebContainerResult {
 
         bootWebContainer();
 
-        // Cleanup function
         return () => {
-            // WebContainer doesn't have an explicit teardown method,
-            // but we can reset our state
             setWebcontainer(undefined);
             setError(null);
         };

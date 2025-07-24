@@ -29,7 +29,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     const [currentStep, setCurrentStep] = useState(0);
     const [loading, setLoading] = useState(false);
 
-    // Memoize the context value to prevent unnecessary re-renders
     const value = React.useMemo(
         () => ({
             prompt,
@@ -45,7 +44,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
-// Custom hook for using the context
 export const useAppContext = () => {
     const context = useContext(AppContext);
     if (context === undefined) {

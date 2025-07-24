@@ -8,25 +8,25 @@ import { Footer } from '../components/home/Footer';
 import HowitWork from '@/components/home/Works';
 
 export function Home() {
-  const { prompt, setPrompt } = useAppContext();
-  const [scrollY, setScrollY] = useState(0);
+    const { prompt, setPrompt } = useAppContext();
+    const [scrollY, setScrollY] = useState(0);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrollY(window.scrollY);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [scrollY]);
+    useEffect(() => {
+        const handleScroll = () => {
+            setScrollY(window.scrollY);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [scrollY]);
 
-  return (
-    <div className="bg-gradient-to-br from-gray-950 via-gray-900 to-blue-950 min-h-screen relative">
-      <Navbar scrollY={scrollY} />
-      <HeroSection prompt={prompt} setPrompt={setPrompt} />
-      <FeaturesSection />
-      <HowitWork/>
-      <FaqSection />
-      <Footer />
-    </div>
-  );
+    return (
+        <div className="bg-gradient-to-br from-gray-950 via-gray-900 to-blue-950 min-h-screen relative">
+            <Navbar scrollY={scrollY} />
+            <HeroSection prompt={prompt} setPrompt={setPrompt} />
+            <FeaturesSection />
+            <HowitWork />
+            <FaqSection />
+            <Footer />
+        </div>
+    );
 }

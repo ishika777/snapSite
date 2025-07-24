@@ -17,12 +17,13 @@ import { WebContainer } from '@webcontainer/api';
 import { downloadProjectAsZip } from '../utils/fileDownloader';
 import { useAppContext } from '../context/AppContext';
 import { Button } from '@/components/ui/button.tsx';
+import { toast } from 'sonner';
 
 type StepStatus = 'pending' | 'in-progress' | 'completed';
 
 export function Builder() {
 
-    const { prompt, setLoading: setContextLoading, currentStep, setCurrentStep, } = useAppContext();
+    const { prompt, currentStep, setCurrentStep, } = useAppContext();
 
     const [userPrompt, setPrompt] = useState('');
     const [llmMessages, setLlmMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
@@ -42,64 +43,63 @@ export function Builder() {
 
     const API_URL = import.meta.env.VITE_BACKEND_URL;
 
-    // Process steps to generate files
+
     useEffect(() => {
         let originalFiles = [...files];
         let updateHappened = false;
 
-        steps
-            .filter(({ status }) => status === 'pending')
-            .forEach((step) => {
-                updateHappened = true;
-                if (step?.type === StepType.CreateFile) {
-                    let parsedPath = step.path?.split('/') ?? []; // ["src", "components", "App.tsx"]
-                    let currentFileStructure = [...originalFiles]; // {}
-                    let finalAnswerRef = currentFileStructure;
+        steps.filter(({ status }) => status === 'pending').forEach((step) => {
+            console.log(step)
+            updateHappened = true;
+            if (step?.type === StepType.CreateFile) {
+                let parsedPath = step.path?.split('/') ?? []; // ["src", "components", "App.tsx"]
+                let currentFileStructure = [...originalFiles]; // {}
+                let finalAnswerRef = currentFileStructure;
 
-                    let currentFolder = '';
-                    while (parsedPath.length) {
-                        currentFolder = `${currentFolder}/${parsedPath[0]}`;
-                        let currentFolderName = parsedPath[0];
-                        parsedPath = parsedPath.slice(1);
+                let currentFolder = '';
+                while (parsedPath.length) {
+                    currentFolder = `${currentFolder}/${parsedPath[0]}`;
+                    let currentFolderName = parsedPath[0];
+                    parsedPath = parsedPath.slice(1);
 
-                        if (!parsedPath.length) {
-                            // final file
-                            let file = currentFileStructure.find(
-                                (x) => x.path === currentFolder
-                            );
-                            if (!file) {
-                                currentFileStructure.push({
-                                    name: currentFolderName,
-                                    type: 'file',
-                                    path: currentFolder,
-                                    content: step.code,
-                                });
-                            } else {
-                                file.content = step.code;
-                            }
+                    if (!parsedPath.length) {
+                        // final file
+                        let file = currentFileStructure.find(
+                            (x) => x.path === currentFolder
+                        );
+                        if (!file) {
+                            currentFileStructure.push({
+                                name: currentFolderName,
+                                type: 'file',
+                                path: currentFolder,
+                                content: step.code,
+                            });
                         } else {
-                            /// in a folder
-                            let folder = currentFileStructure.find(
-                                (x) => x.path === currentFolder
-                            );
-                            if (!folder) {
-                                // create the folder
-                                currentFileStructure.push({
-                                    name: currentFolderName,
-                                    type: 'folder',
-                                    path: currentFolder,
-                                    children: [],
-                                });
-                            }
-
-                            currentFileStructure = currentFileStructure.find(
-                                (x) => x.path === currentFolder
-                            )!.children!;
+                            file.content = step.code;
                         }
+                    } else {
+                        /// in a folder
+                        let folder = currentFileStructure.find(
+                            (x) => x.path === currentFolder
+                        );
+                        if (!folder) {
+                            // create the folder
+                            currentFileStructure.push({
+                                name: currentFolderName,
+                                type: 'folder',
+                                path: currentFolder,
+                                children: [],
+                            });
+                        }
+
+                        currentFileStructure = currentFileStructure.find(
+                            (x) => x.path === currentFolder
+                        )!.children!;
                     }
-                    originalFiles = finalAnswerRef;
                 }
-            });
+                originalFiles = finalAnswerRef;
+            }
+        });
 
         if (updateHappened) {
             setFiles(originalFiles);
@@ -114,19 +114,60 @@ export function Builder() {
         }
     }, [steps]);
 
-    // Update WebContainer when files change
+    const createMountStructure = (files: FileItem[]): Record<string, any> => {
+        const mountStructure: Record<string, any> = {};
+
+        const processFile = (file: FileItem, isRootFolder: boolean) => {
+            if (file.type === 'folder') {
+                mountStructure[file.name] = {
+                    directory: file.children
+                        ? Object.fromEntries(
+                            file.children.map((child) => [
+                                child.name,
+                                processFile(child, false),
+                            ])
+                        )
+                        : {},
+                };
+            } else if (file.type === 'file') {
+                if (isRootFolder) {
+                    mountStructure[file.name] = {
+                        file: {
+                            contents: file.content || '',
+                        },
+                    };
+                } else {
+                    return {
+                        file: {
+                            contents: file.content || '',
+                        },
+                    };
+                }
+            }
+
+            return mountStructure[file.name];
+        };
+
+        files.forEach((file) => processFile(file, true));
+        return mountStructure;
+    };
+
     useEffect(() => {
         if (!webcontainer || files.length === 0) return;
 
         try {
             (webcontainer as WebContainer).mount(createMountStructure(files));
-        } catch (err) {
-            console.error('Error mounting files to WebContainer:', err);
+        } catch (err: unknown) {
+            if (err && typeof err === 'object' && 'message' in err) {
+                toast.error('Error mounting files to WebContainer: ' + (err as { message: string }).message);
+            } else {
+                toast.error('Error mounting files to WebContainer: Unknown error');
+            }
         }
     }, [files, webcontainer]);
 
     const handleFileUpdate = (updatedFile: FileItem) => {
-        // Deep clone files to maintain immutability
+
         const updateFilesRecursively = (
             filesArray: FileItem[],
             fileToUpdate: FileItem
@@ -162,56 +203,11 @@ export function Builder() {
         }
     };
 
-    // Create mount structure for WebContainer
-    const createMountStructure = (files: FileItem[]): Record<string, any> => {
-        const mountStructure: Record<string, any> = {};
-
-        const processFile = (file: FileItem, isRootFolder: boolean) => {
-            if (file.type === 'folder') {
-                // For folders, create a directory entry
-                mountStructure[file.name] = {
-                    directory: file.children
-                        ? Object.fromEntries(
-                            file.children.map((child) => [
-                                child.name,
-                                processFile(child, false),
-                            ])
-                        )
-                        : {},
-                };
-            } else if (file.type === 'file') {
-                if (isRootFolder) {
-                    mountStructure[file.name] = {
-                        file: {
-                            contents: file.content || '',
-                        },
-                    };
-                } else {
-                    // For files, create a file entry with contents
-                    return {
-                        file: {
-                            contents: file.content || '',
-                        },
-                    };
-                }
-            }
-
-            return mountStructure[file.name];
-        };
-
-        // Process each top-level file/folder
-        files.forEach((file) => processFile(file, true));
-
-        return mountStructure;
-    };
-
     async function init() {
         try {
             setLoading(true);
 
-            // Skip if template is already set
             if (!templateSet) {
-                // Get template from backend
                 const response = await axios.post(`${API_URL}/template`, {
                     prompt,
                 });
@@ -225,12 +221,7 @@ export function Builder() {
                     },
                 ]);
 
-                // Set the initial steps from template
-                const initialSteps = parseXml(uiPrompts[0] || '').map((x: any) => ({
-                    ...x,
-                    status: 'pending' as StepStatus,
-                }));
-
+                const initialSteps = parseXml(uiPrompts[0] || '')
                 setSteps(initialSteps);
                 setTemplateSet(true);
 
@@ -242,12 +233,7 @@ export function Builder() {
                     })),
                 });
 
-                // Process the steps from the chat response
-                const newSteps = parseXml(chatResponse.data.response).map((x: any) => ({
-                    ...x,
-                    status: 'pending' as StepStatus,
-                }));
-
+                const newSteps = parseXml(chatResponse.data.response)
                 setSteps((prevSteps) => [...prevSteps, ...newSteps]);
 
                 setLlmMessages((prevMessages) => [
@@ -304,15 +290,11 @@ export function Builder() {
 
             setLlmMessages([...llmMessages, newUserMessage, assistantMessage]);
 
-            // Check if the response contains steps in XML format
-            const newSteps = parseXml(response.data.response).map((x: any) => ({
-                ...x,
-                status: 'pending' as StepStatus,
-            }));
-
+            const newSteps = parseXml(response.data.response)
             if (newSteps.length > 0) {
                 setSteps((prevSteps) => [...prevSteps, ...newSteps]);
             }
+
         } catch (error) {
             console.error('Error sending message:', error);
         } finally {
@@ -328,7 +310,7 @@ export function Builder() {
 
     return (
         <div className="max-h-screen h-screen overflow-auto bg-gray-950 flex flex-col">
-            <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+            <header className="bg-gray-900 border-b border-gray-800 px-6 py-2 flex items-center justify-between">
                 <Link to={"/"}
                     className="flex items-center gap-2 hover:opacity-80 transition-opacity"
                 >
@@ -364,7 +346,7 @@ export function Builder() {
                     className="bg-gray-900 border-r border-gray-800 overflow-hidden"
                     animate={{
                         width: isSidebarCollapsed
-                            ? '3rem'
+                            ? '0'
                             : ['100%', '90%', '75%', '50%', '33%', '25rem'].length >
                                 window.innerWidth / 100
                                 ? '0'
@@ -374,20 +356,6 @@ export function Builder() {
                     transition={{ duration: 0.3 }}
                 >
                     <div className="flex h-full">
-                        <div className="p-1 pt-2 bg-gray-900 border-r border-gray-800 flex flex-col items-center">
-                            <button
-                                onClick={() => setSidebarCollapsed(!isSidebarCollapsed)}
-                                className="p-1 rounded-lg hover:bg-gray-800 transition-colors"
-                                title={
-                                    isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
-                                }
-                            >
-                                <PanelRight
-                                    className={`w-5 h-5 text-gray-400 transition-transform ${isSidebarCollapsed ? 'rotate-180' : ''}`}
-                                />
-                            </button>
-                        </div>
-
                         {!isSidebarCollapsed && (
                             <div className="flex-1 overflow-hidden flex flex-col">
                                 <div className="border-b border-gray-800 p-3">
@@ -439,12 +407,6 @@ export function Builder() {
                 >
                     <div className="p-2 pl-3 border-b border-gray-800 flex items-center justify-between">
                         <h3 className="text-white font-medium">Files</h3>
-                        <button
-                            onClick={() => setFileExplorerCollapsed(!isFileExplorerCollapsed)}
-                            className="p-1 rounded-lg hover:bg-gray-800 transition-colors md:hidden"
-                        >
-                            <PanelRight className="w-4 h-4 text-gray-400" />
-                        </button>
                     </div>
                     <div className="flex-1 overflow-auto">
                         <FileExplorer files={files} onFileSelect={setSelectedFile} />
@@ -452,9 +414,9 @@ export function Builder() {
                 </motion.div>
 
                 <div className="flex-1 flex flex-col overflow-hidden">
-                    <div className="p-2 border-b border-gray-800 bg-gray-900 flex items-center justify-between">
+                    <div className="flex items-center justify-between p-2 border-b border-gray-800 bg-gray-900 ">
                         <TabView activeTab={activeTab} onTabChange={setActiveTab} />
-                        <div className="flex items-center md:hidden">
+                        <div className="flex items-center">
                             <button
                                 onClick={() =>
                                     setFileExplorerCollapsed(!isFileExplorerCollapsed)
