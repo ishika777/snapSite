@@ -4,7 +4,6 @@ import { cn } from '@/lib/utils';
 
 interface StepsListProps {
     steps: Step[];
-    currentStep: number;
     onStepClick: (stepId: number) => void;
 }
 
@@ -21,7 +20,7 @@ function getStepIcon(type: StepType) {
     }
 }
 
-export function StepsList({ steps, currentStep, onStepClick }: StepsListProps) {
+export function StepsList({ steps, onStepClick }: StepsListProps) {
     if (steps.length === 0) {
         return (
             <div className="text-center py-8">

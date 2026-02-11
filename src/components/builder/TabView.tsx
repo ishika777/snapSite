@@ -1,5 +1,5 @@
 import { Code2, Eye } from 'lucide-react';
-import { cn } from '../../utils/cn';
+import { cn } from '../../lib/utils';
 
 interface TabViewProps {
     activeTab: 'code' | 'preview';

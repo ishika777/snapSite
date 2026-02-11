@@ -99,6 +99,7 @@ function FileNode({ item, depth, onFileClick }: FileNodeProps) {
 }
 
 export function FileExplorer({ files, onFileSelect }: FileExplorerProps) {
+
     const sortedFiles = [...files].sort((a, b) => {
         // Folders first, then files
         if (a.type === 'folder' && b.type === 'file') return -1;

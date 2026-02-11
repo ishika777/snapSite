@@ -23,23 +23,19 @@ interface AppProviderProps {
     children: ReactNode;
 }
 
-// Create provider component
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     const [prompt, setPrompt] = useState('');
     const [currentStep, setCurrentStep] = useState(0);
     const [loading, setLoading] = useState(false);
 
-    const value = React.useMemo(
-        () => ({
+    const value = React.useMemo(() => ({
             prompt,
             setPrompt,
             currentStep,
             setCurrentStep,
             loading,
             setLoading,
-        }),
-        [prompt, currentStep, loading]
-    );
+        }), [prompt, currentStep, loading]);
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

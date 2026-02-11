@@ -21,6 +21,7 @@ export async function getProjectTemplate(prompt: string) {
     }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sendChatMessage(messages: any[]) {
     try {
         const response = await fetch(`${API_URL}/chat`, {

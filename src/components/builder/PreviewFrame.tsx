@@ -1,9 +1,12 @@
 import { WebContainer } from '@webcontainer/api';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RefreshCw, AlertOctagon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Loader } from '../Loader';
+import { toast } from 'sonner';
 
 interface PreviewFrameProps {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     files: any[];
     webContainer: WebContainer;
 }
@@ -13,12 +16,23 @@ export function PreviewFrame({ files, webContainer }: PreviewFrameProps) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    const devServerStarted = useRef(false);
+
     async function startDevServer() {
         try {
             setLoading(true);
             setError(null);
 
             const installProcess = await webContainer.spawn('npm', ['install']);
+            installProcess.output.pipeTo(new WritableStream({
+                write(chunk) {
+                    if (typeof chunk === 'string') {
+                        console.log(chunk);
+                    } else {
+                        console.log(new TextDecoder().decode(chunk));
+                    }
+                }
+            }));
 
             const installExitCode = await installProcess.exit;
 
@@ -57,9 +71,9 @@ export function PreviewFrame({ files, webContainer }: PreviewFrameProps) {
             setLoading(false);
         }
     }
-
     useEffect(() => {
-        if (files.length > 0 && webContainer) {
+        if (files.length > 0 && webContainer && !devServerStarted.current) {
+            devServerStarted.current = true; // mark as started
             startDevServer();
         }
     }, [files, webContainer]);
@@ -67,10 +81,14 @@ export function PreviewFrame({ files, webContainer }: PreviewFrameProps) {
     return (
         <div className="h-full flex flex-col items-center justify-center bg-gray-950 rounded-lg overflow-hidden border border-gray-800">
             {loading && (
-                <div className="text-center p-6 flex flex-col items-center gap-4">
-                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
-                    <p className="text-gray-300 font-medium">Setting up preview environment...</p>
-                    <p className="text-sm text-gray-500">This might take a moment</p>
+                <div className="h-full flex flex-col items-center justify-center text-gray-400 p-8 text-center">
+                    <Loader size="lg" className="mb-4" />
+                    <h3 className="text-lg font-medium text-gray-300 mb-2">
+                        Initializing WebContainer
+                    </h3>
+                    <p className="text-gray-500 max-w-md">
+                        Setting up the preview environment. This might take a moment...
+                    </p>
                 </div>
             )}
 
@@ -80,7 +98,10 @@ export function PreviewFrame({ files, webContainer }: PreviewFrameProps) {
                     <h3 className="text-red-400 font-medium text-lg mb-2">Preview Error</h3>
                     <p className="text-gray-300 mb-4">{error}</p>
                     <button
-                        onClick={startDevServer}
+                        onClick={() => {
+                            devServerStarted.current = false; // allow restart
+                            startDevServer();
+                        }}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-red-900/30 hover:bg-red-900/50 text-gray-200 rounded-md transition-colors"
                     >
                         <RefreshCw className="h-4 w-4" />
@@ -90,6 +111,7 @@ export function PreviewFrame({ files, webContainer }: PreviewFrameProps) {
             )}
 
             {url && !loading && !error && (
+                toast.success(url),
                 <iframe
                     src={url}
                     className={cn(
@@ -97,7 +119,7 @@ export function PreviewFrame({ files, webContainer }: PreviewFrameProps) {
                     )}
                     title="Site Preview"
                     sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation"
-                    allow="accelerometer; camera; encrypted-media; geolocation; gyroscope; microphone; midi; payment; usb; xr-spatial-tracking"
+                    allow=" encrypted-media; geolocation; payment;"
                 />
             )}
         </div>

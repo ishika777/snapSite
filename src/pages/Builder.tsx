@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { StepsList } from '../components/builder/StepsList.tsx';
@@ -9,12 +11,11 @@ import { Step, FileItem, StepType } from '@/types/index.ts';
 import axios from 'axios';
 import { parseXml } from '../steps';
 import { useWebContainer } from '../hooks/useWebContainer';
-import { Loader } from '../components/Loader.tsx';
 
-import { PanelRight, Send, RefreshCw, AlertTriangle, Download, Loader2 } from 'lucide-react';
+import { PanelRight, Download, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { WebContainer } from '@webcontainer/api';
-import { downloadProjectAsZip } from '../utils/fileDownloader';
+import { downloadProjectAsZip } from '../lib/fileDownloader.ts';
 import { useAppContext } from '../context/AppContext';
 import { Button } from '@/components/ui/button.tsx';
 import { toast } from 'sonner';
@@ -23,15 +24,15 @@ type StepStatus = 'pending' | 'in-progress' | 'completed';
 
 export function Builder() {
 
-    const { prompt, currentStep, setCurrentStep, } = useAppContext();
 
-    const [userPrompt, setPrompt] = useState('');
-    const [llmMessages, setLlmMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
-    const [loading, setLoading] = useState(false);
+    const defaultPrompt = "Create a Todo App with React and Tailwind CSS";
+
+    const { prompt, setPrompt, setCurrentStep } = useAppContext();
+
     const [templateSet, setTemplateSet] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
 
-    const { webcontainer, error: webContainerError, loading: webContainerLoading, } = useWebContainer();
+    const { webcontainer } = useWebContainer();
 
     const [activeTab, setActiveTab] = useState<'code' | 'preview'>('code');
     const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
@@ -45,6 +46,7 @@ export function Builder() {
 
 
     useEffect(() => {
+        console.log("calling on render")
         let originalFiles = [...files];
         let updateHappened = false;
 
@@ -54,17 +56,17 @@ export function Builder() {
             if (step?.type === StepType.CreateFile) {
                 let parsedPath = step.path?.split('/') ?? []; // ["src", "components", "App.tsx"]
                 let currentFileStructure = [...originalFiles]; // {}
-                let finalAnswerRef = currentFileStructure;
+                const finalAnswerRef = currentFileStructure;
 
                 let currentFolder = '';
                 while (parsedPath.length) {
                     currentFolder = `${currentFolder}/${parsedPath[0]}`;
-                    let currentFolderName = parsedPath[0];
+                    const currentFolderName = parsedPath[0];
                     parsedPath = parsedPath.slice(1);
 
                     if (!parsedPath.length) {
                         // final file
-                        let file = currentFileStructure.find(
+                        const file = currentFileStructure.find(
                             (x) => x.path === currentFolder
                         );
                         if (!file) {
@@ -79,7 +81,7 @@ export function Builder() {
                         }
                     } else {
                         /// in a folder
-                        let folder = currentFileStructure.find(
+                        const folder = currentFileStructure.find(
                             (x) => x.path === currentFolder
                         );
                         if (!folder) {
@@ -103,6 +105,7 @@ export function Builder() {
 
         if (updateHappened) {
             setFiles(originalFiles);
+            console.log("Files updated:", originalFiles);
             setSteps((steps) =>
                 steps.map((s: Step) => {
                     return {
@@ -111,6 +114,7 @@ export function Builder() {
                     };
                 })
             );
+
         }
     }, [steps]);
 
@@ -118,6 +122,7 @@ export function Builder() {
         const mountStructure: Record<string, any> = {};
 
         const processFile = (file: FileItem, isRootFolder: boolean) => {
+            // console.log('Processing file for mount structure:', file);
             if (file.type === 'folder') {
                 mountStructure[file.name] = {
                     directory: file.children
@@ -149,6 +154,7 @@ export function Builder() {
         };
 
         files.forEach((file) => processFile(file, true));
+        console.log('Final mount structure:', mountStructure);
         return mountStructure;
     };
 
@@ -164,14 +170,11 @@ export function Builder() {
                 toast.error('Error mounting files to WebContainer: Unknown error');
             }
         }
-    }, [files, webcontainer]);
+    }, [webcontainer, files]);
 
     const handleFileUpdate = (updatedFile: FileItem) => {
 
-        const updateFilesRecursively = (
-            filesArray: FileItem[],
-            fileToUpdate: FileItem
-        ): FileItem[] => {
+        const updateFilesRecursively = (filesArray: FileItem[], fileToUpdate: FileItem): FileItem[] => {
             return filesArray.map((file) => {
                 if (file.path === fileToUpdate.path) {
                     return fileToUpdate;
@@ -205,29 +208,20 @@ export function Builder() {
 
     async function init() {
         try {
-            setLoading(true);
-
             if (!templateSet) {
+                const actualPrompt = prompt?.trim() || defaultPrompt;
                 const response = await axios.post(`${API_URL}/template`, {
-                    prompt,
+                    prompt: actualPrompt,
                 });
 
-                const { prompts, uiPrompts } = response.data;
+                const { systemPrompt, basicCode } = response.data;
 
-                setLlmMessages([
-                    {
-                        role: 'user',
-                        content: prompt,
-                    },
-                ]);
-
-                const initialSteps = parseXml(uiPrompts[0] || '')
+                const initialSteps = parseXml(basicCode[0] || '')
                 setSteps(initialSteps);
                 setTemplateSet(true);
 
-                // Send the chat request for full project generation
                 const chatResponse = await axios.post(`${API_URL}/chat`, {
-                    messages: [...prompts, prompt].map((content: string) => ({
+                    messages: [...systemPrompt, actualPrompt].map((content: string) => ({
                         role: 'user',
                         content,
                     })),
@@ -235,23 +229,14 @@ export function Builder() {
 
                 const newSteps = parseXml(chatResponse.data.response)
                 setSteps((prevSteps) => [...prevSteps, ...newSteps]);
-
-                setLlmMessages((prevMessages) => [
-                    ...prevMessages,
-                    { role: 'assistant', content: chatResponse.data.response },
-                ]);
             }
 
-            setLoading(false);
         } catch (error) {
             console.error('Error initializing project:', error);
-            setLoading(false);
         }
     }
 
-    const handleRefreshWebContainer = () => {
-        window.location.href = '/';
-    };
+  
 
     const handleDownloadProject = async () => {
         if (files.length > 0) {
@@ -266,41 +251,11 @@ export function Builder() {
         }
     };
 
-    const handleSendMessage = async () => {
-        if (!userPrompt.trim()) return;
-
-        const newUserMessage = {
-            role: 'user' as const,
-            content: userPrompt,
-        };
-
-        setLlmMessages([...llmMessages, newUserMessage]);
-        setPrompt('');
-        setLoading(true);
-
-        try {
-            const response = await axios.post(`${API_URL}/chat`, {
-                messages: [...llmMessages, newUserMessage],
-            });
-
-            const assistantMessage = {
-                role: 'assistant' as const,
-                content: response.data.response,
-            };
-
-            setLlmMessages([...llmMessages, newUserMessage, assistantMessage]);
-
-            const newSteps = parseXml(response.data.response)
-            if (newSteps.length > 0) {
-                setSteps((prevSteps) => [...prevSteps, ...newSteps]);
-            }
-
-        } catch (error) {
-            console.error('Error sending message:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    useEffect(() => {
+    if (!prompt?.trim()) {
+        setPrompt(defaultPrompt);
+    }
+}, [prompt, setCurrentStep]);
 
     useEffect(() => {
         if (webcontainer && !templateSet) {
@@ -357,40 +312,18 @@ export function Builder() {
                 >
                     <div className="flex h-full">
                         {!isSidebarCollapsed && (
+
                             <div className="flex-1 overflow-hidden flex flex-col">
                                 <div className="border-b border-gray-800 p-3">
-                                    <p className="text-sm text-gray-400 line-clamp-2">{prompt.length == 0 ? <span className='text-white'>Your Prompt</span> : prompt}</p>
+                                    <p className="text-sm text-gray-400 line-clamp-2">{prompt}</p>
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto p-4">
                                     <h3 className="text-white font-medium pb-4">Build Steps</h3>
                                     <StepsList
                                         steps={steps}
-                                        currentStep={currentStep}
                                         onStepClick={setCurrentStep}
                                     />
-                                </div>
-
-                                <div className="border-t border-gray-800 p-1">
-                                    {loading || !templateSet ? (
-                                        <Loader />
-                                    ) : (
-                                        <div className="relative">
-                                            <textarea
-                                                value={userPrompt}
-                                                onChange={(e) => setPrompt(e.target.value)}
-                                                placeholder="Add more instructions or modifications..."
-                                                className="w-full p-3 bg-gray-800 text-gray-200 rounded-lg border border-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-none placeholder-gray-500 text-sm h-20"
-                                            ></textarea>
-                                            <button
-                                                onClick={handleSendMessage}
-                                                disabled={userPrompt.trim().length === 0}
-                                                className="absolute right-3 bottom-3 p-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-full transition-colors"
-                                            >
-                                                <Send className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         )}
@@ -444,52 +377,21 @@ export function Builder() {
 
                     <div className="flex-1 overflow-hidden p-4 bg-gray-950">
                         <div className="h-full rounded-lg overflow-hidden border border-gray-800 bg-gray-900 shadow-xl">
-                            {activeTab === 'code' ? (
+                            <div className={`${activeTab === 'code' ? 'block' : 'hidden'} h-full`}>
                                 <CodeEditor
                                     file={selectedFile}
                                     onUpdateFile={handleFileUpdate}
                                 />
-                            ) : webcontainer ? (
-                                <PreviewFrame
-                                    webContainer={webcontainer as WebContainer}
-                                    files={files}
-                                />
-                            ) : webContainerLoading ? (
-                                <div className="h-full flex items-center justify-center text-gray-400 p-8 text-center">
-                                    <div>
-                                        <Loader size="lg" className="mb-4" />
-                                        <h3 className="text-lg font-medium text-gray-300 mb-2">
-                                            Initializing WebContainer
-                                        </h3>
-                                        <p className="text-gray-500 max-w-md">
-                                            Setting up the preview environment. This might take a
-                                            moment...
-                                        </p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="h-full flex items-center justify-center text-gray-400 p-8 text-center">
-                                    <div>
-                                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-800 flex items-center justify-center">
-                                            <AlertTriangle className="w-8 h-8 text-amber-500" />
-                                        </div>
-                                        <h3 className="text-lg font-medium text-gray-300 mb-2">
-                                            WebContainer Error
-                                        </h3>
-                                        <p className="text-gray-400 max-w-md mb-6">
-                                            {webContainerError?.message ||
-                                                'The WebContainer environment could not be initialized. This may be due to missing browser security headers or lack of browser support.'}
-                                        </p>
-                                        <button
-                                            onClick={handleRefreshWebContainer}
-                                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
-                                        >
-                                            <RefreshCw className="h-4 w-4" />
-                                            Retry
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                            </div>
+
+                            <div className={`${activeTab === 'preview' ? 'block' : 'hidden'} h-full`}>
+                                {webcontainer && (
+                                    <PreviewFrame
+                                        webContainer={webcontainer as WebContainer}
+                                        files={files}
+                                    />
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

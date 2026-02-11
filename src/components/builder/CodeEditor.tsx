@@ -13,11 +13,9 @@ function getLanguage(filename: string) {
 
     switch (extension) {
         case 'js':
-            return 'javascript';
         case 'jsx':
             return 'javascript';
         case 'ts':
-            return 'typescript';
         case 'tsx':
             return 'typescript';
         case 'html':
